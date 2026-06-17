@@ -1,0 +1,31 @@
+name: Swell
+options:
+  bundleIdPrefix: com.peregrine
+  deploymentTarget:
+    macOS: "14.0"
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    from: "6.0.0"
+targets:
+  Swell:
+    type: application
+    platform: macOS
+    sources: [Sources]
+    resources: [Resources]
+    dependencies:
+      - package: GRDB
+    info:
+      path: Sources/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleDisplayName: Swell
+    settings:
+      SWIFT_VERSION: "5.9"
+  SwellTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests]
+    dependencies:
+      - target: Swell
+      - package: GRDB
