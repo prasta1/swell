@@ -1,5 +1,7 @@
 # Swell
 
+<img src="swell.png" width="120" alt="Swell icon" />
+
 A macOS menubar app that monitors surf conditions and crowd counts at Santa Cruz, CA.
 
 ![macOS](https://img.shields.io/badge/macOS-15%2B-blue) ![Swift](https://img.shields.io/badge/Swift-6-orange)
