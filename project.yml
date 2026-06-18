@@ -13,11 +13,10 @@ targets:
     platform: macOS
     sources:
       - path: Sources
+      - path: Resources/spots.json
+        buildPhase: resources
       - path: Resources/SurferYOLO.mlpackage
         buildPhase: sources
-    resources:
-      - path: Resources
-        excludes: ["SurferYOLO.mlpackage", "SurferYOLO.mlpackage/**"]
     dependencies:
       - package: GRDB
     info:
