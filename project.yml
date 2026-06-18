@@ -12,7 +12,7 @@ packages:
     from: "0.20.0"
   MLXLM:
     url: https://github.com/ml-explore/mlx-swift-lm.git
-    revision: "2.21.2"
+    revision: "2.31.3"
 targets:
   Swell:
     type: application
