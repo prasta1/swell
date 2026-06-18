@@ -4,6 +4,18 @@ All notable changes to Swell are documented here.
 
 ## [Unreleased]
 
+## [0.6969-beta] — 2026-06-18
+
+### Added
+- Menubar app showing live surf conditions for Santa Cruz, CA
+- Crowd count via YOLOv8 CoreML model applied to live cam frames
+- Swell height and period from NDBC buoy 46042
+- Tide height and direction from NOAA CO-OPS
+- Wind speed and offshore/onshore classification from NWS
+- Trend chips, daylight gating, local SQLite history
+- Launch at login
+- Surf Escape: one-click calendar block with LLM-generated meeting title
+
 ## [1.0.0] — 2026-06-18
 
 ### Added
