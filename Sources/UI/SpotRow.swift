@@ -4,6 +4,9 @@ import SwiftUI
 /// and low-signal beach cams get muted treatment.
 struct SpotRow: View {
     let row: MenuViewModel.Row
+    /// Opens the cam-viewer window focused on this spot.
+    let onViewCam: (String) -> Void
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         HStack(spacing: 10) {
@@ -25,6 +28,16 @@ struct SpotRow: View {
         }
         .opacity(row.surfValue == .locked ? 0.45 : (row.lowSignal ? 0.65 : 1))
         .padding(.horizontal, 14).padding(.vertical, 9)
+        .contextMenu {
+            if row.sourceKind != .youtube && row.surfValue != .locked {
+                Button("View Live Cam") { onViewCam(row.id) }
+                if let url = row.camURL {
+                    Button("Open Cam in Browser") { openURL(url) }
+                }
+            } else {
+                Button("No public cam") {}.disabled(true)
+            }
+        }
     }
 
     @ViewBuilder private func trendChip(_ t: TrendLevel) -> some View {

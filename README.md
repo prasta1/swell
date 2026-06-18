@@ -59,6 +59,6 @@ All data sources are free and public:
 | Source | Feed |
 |---|---|
 | NDBC buoy 46042 | `ndbc.noaa.gov/data/realtime2/46042.txt` |
-| NOAA CO-OPS tide (station 9413745) | `api.tidesandcurrents.noaa.gov` |
+| NOAA CO-OPS tide (station 9413450, Monterey) | `api.tidesandcurrents.noaa.gov` |
 | NWS hourly forecast | `api.weather.gov/gridpoints/MTR/97,82/forecast/hourly` |
 | Surf cams | Public HLS / MJPEG streams |

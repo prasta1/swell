@@ -62,21 +62,33 @@ private struct CustomDurationPopover: View {
 /// The dropdown root: header, conditions strip, spot rows, footer actions.
 struct MenuContentView: View {
     @ObservedObject var vm: MenuViewModel
+    let calendarService: CalendarService
+    let titleGenerator: MeetingTitleGenerator
+    let onViewCam: (String) -> Void
     let onSampleNow: () -> Void
     let onQuit: () -> Void
 
     @State private var showCustomDuration = false
+    @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Label("Swell", systemImage: "water.waves").font(.system(size: 15, weight: .medium))
                 Spacer()
+                Button { showSettings = true } label: {
+                    Image(systemName: "gearshape").font(.system(size: 13))
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
+                .popover(isPresented: $showSettings, arrowEdge: .bottom) {
+                    SettingsView(calendarService: calendarService, titleGenerator: titleGenerator)
+                }
             }.padding(.horizontal, 14).padding(.vertical, 10)
             Divider()
             ConditionsStrip(c: vm.conditions).padding(.horizontal, 14).padding(.vertical, 10)
             Divider()
-            ForEach(vm.rows) { SpotRow(row: $0) }
+            ForEach(vm.rows) { SpotRow(row: $0, onViewCam: onViewCam) }
             Divider()
             SurfEscapeFooter(vm: vm, showCustomDuration: $showCustomDuration)
             Divider()
@@ -98,36 +110,18 @@ struct MenuContentView: View {
 private struct SurfEscapeFooter: View {
     @ObservedObject var vm: MenuViewModel
     @Binding var showCustomDuration: Bool
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 10) {
-            // Status / confirmation message
-            if case .success(let title) = vm.surfEscapeStatus {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    Text("🌊 Blocked as \"\(title)\"")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.primary)
-                    Spacer()
-                }
-                .padding(.horizontal, 14)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            } else if case .failure(let message) = vm.surfEscapeStatus {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                    Text(message)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer()
-                }
-                .padding(.horizontal, 14)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+            // Status row — only present when there's something to show, so the VStack
+            // doesn't reserve an empty spacing slot above the pills when idle.
+            if showsStatus {
+                statusRow
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // Duration pills + Go Surf button
+            // Duration pills
             HStack(spacing: 8) {
                 ForEach(SurfDuration.presets) { duration in
                     Button {
@@ -155,32 +149,81 @@ private struct SurfEscapeFooter: View {
                     }
                     .buttonStyle(.plain)
                 }
-
                 Spacer()
-
-                Button {
-                    vm.goSurf()
-                } label: {
-                    HStack(spacing: 4) {
-                        if isLoading {
-                            ProgressView()
-                                .controlSize(.mini)
-                        } else {
-                            Image(systemName: "figure.surfing")
-                        }
-                        Text("Go Surf")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(vm.selectedDuration == nil || isLoading)
-                .help("Create a calendar event to go surf")
             }
-            .padding(.horizontal, 14)
+
+            // Go Surf — full-width primary action (own row so the label never truncates)
+            Button {
+                vm.goSurf()
+            } label: {
+                HStack(spacing: 6) {
+                    if isLoading {
+                        ProgressView()
+                            .controlSize(.mini)
+                    } else {
+                        Image(systemName: "figure.surfing")
+                    }
+                    Text("Go Surf")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(vm.selectedDuration == nil || isLoading)
+            .help("Create a calendar event to go surf")
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .animation(.easeInOut(duration: 0.2), value: vm.surfEscapeStatus)
+    }
+
+    /// True only for terminal states that render a status row.
+    private var showsStatus: Bool {
+        switch vm.surfEscapeStatus {
+        case .success, .permissionDenied, .failure: return true
+        default: return false
+        }
+    }
+
+    /// The success/denied/error row shown above the pills. Padding and transition
+    /// are applied by the caller.
+    @ViewBuilder private var statusRow: some View {
+        switch vm.surfEscapeStatus {
+        case .success(let title, let duration):
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text("🌊 Blocked \(durationLabel(duration)) as \"\(title)\"")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+        case .permissionDenied:
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Text("Calendar access denied.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Button("Open Settings") { openCalendarSettings() }
+                    .font(.system(size: 11))
+                    .buttonStyle(.link)
+                Spacer()
+            }
+        case .failure(let message):
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+            }
+        default:
+            EmptyView()
+        }
     }
 
     private var isLoading: Bool {
@@ -188,5 +231,22 @@ private struct SurfEscapeFooter: View {
         if case .generatingTitle = vm.surfEscapeStatus { return true }
         if case .creatingEvent = vm.surfEscapeStatus { return true }
         return false
+    }
+
+    /// Compact label for the blocked duration, e.g. 5400s → "1h 30m", 3600s → "1h".
+    private func durationLabel(_ seconds: TimeInterval) -> String {
+        let totalMinutes = Int((seconds / 60).rounded())
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0 && minutes > 0 { return "\(hours)h \(minutes)m" }
+        if hours > 0 { return "\(hours)h" }
+        return "\(minutes)m"
+    }
+
+    /// Opens System Settings → Privacy & Security → Calendars so the user can grant access.
+    private func openCalendarSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+            openURL(url)
+        }
     }
 }
