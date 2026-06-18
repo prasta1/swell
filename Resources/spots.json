@@ -1,1 +1,72 @@
-[]
+[
+  {
+    "id": "cowells",
+    "name": "Cowells",
+    "source": {"kind": "snapshot", "url": "https://cmgp-coastcam.s3-us-west-2.amazonaws.com/cameras/dreaminn/latest/c2_snap.jpg"},
+    "waterRegion": {"points": [[0.05,0.45],[0.95,0.40],[0.95,0.75],[0.05,0.80]]},
+    "surfValue": "good"
+  },
+  {
+    "id": "main-beach",
+    "name": "Main Beach · Wharf",
+    "source": {"kind": "snapshot", "url": "https://cmgp-coastcam.s3-us-west-2.amazonaws.com/cameras/dreaminn/latest/c1_snap.jpg"},
+    "waterRegion": {"points": [[0.05,0.45],[0.95,0.45],[0.95,0.80],[0.05,0.80]]},
+    "surfValue": "lowSignal"
+  },
+  {
+    "id": "seacliff",
+    "name": "Seacliff · Aptos",
+    "source": {"kind": "hls", "url": "https://video.parks.ca.gov/Seacliff/Seacliff.stream/playlist.m3u8"},
+    "waterRegion": {"points": [[0.0,0.5],[1.0,0.5],[1.0,0.9],[0.0,0.9]]},
+    "surfValue": "ok"
+  },
+  {
+    "id": "sc-wharf",
+    "name": "SC Wharf",
+    "source": {"kind": "hls", "url": "https://stage-ams.srv.axds.co/stream/adaptive/cencoos/santacruzwharf/hls.m3u8"},
+    "waterRegion": {"points": [[0.0,0.45],[1.0,0.45],[1.0,0.85],[0.0,0.85]]},
+    "surfValue": "lowSignal"
+  },
+  {
+    "id": "walton-lighthouse",
+    "name": "Walton Lighthouse · Seabright",
+    "source": {"kind": "hls", "url": "https://stage-ams-nfs.srv.axds.co/stream/adaptive/ucsc/walton_lighthouse/hls.m3u8"},
+    "waterRegion": {"points": [[0.0,0.45],[1.0,0.45],[1.0,0.85],[0.0,0.85]]},
+    "surfValue": "lowSignal"
+  },
+  {
+    "id": "pajaro-dunes",
+    "name": "Pajaro Dunes",
+    "source": {"kind": "hls", "url": "https://manage.hdrelay.com/player/63a4e361d0964a1867dc17a2"},
+    "waterRegion": {"points": [[0.0,0.5],[1.0,0.5],[1.0,0.9],[0.0,0.9]]},
+    "surfValue": "ok"
+  },
+  {
+    "id": "pleasure-point",
+    "name": "Pleasure Point",
+    "source": {"kind": "youtube", "url": ""},
+    "waterRegion": {"points": [[0,0],[0,0],[0,0]]},
+    "surfValue": "locked"
+  },
+  {
+    "id": "the-hook",
+    "name": "The Hook · 38th Ave",
+    "source": {"kind": "youtube", "url": ""},
+    "waterRegion": {"points": [[0,0],[0,0],[0,0]]},
+    "surfValue": "locked"
+  },
+  {
+    "id": "steamer-lane",
+    "name": "Steamer Lane",
+    "source": {"kind": "youtube", "url": ""},
+    "waterRegion": {"points": [[0,0],[0,0],[0,0]]},
+    "surfValue": "locked"
+  },
+  {
+    "id": "capitola",
+    "name": "Capitola",
+    "source": {"kind": "youtube", "url": ""},
+    "waterRegion": {"points": [[0,0],[0,0],[0,0]]},
+    "surfValue": "locked"
+  }
+]

@@ -25,7 +25,13 @@ targets:
   SwellTests:
     type: bundle.unit-test
     platform: macOS
-    sources: [Tests]
+    sources:
+      - path: Tests
+        excludes: ["Fixtures/**"]
+      - path: Tests/Fixtures
+        buildPhase: resources
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: Swell
       - package: GRDB

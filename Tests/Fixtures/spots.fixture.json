@@ -1,0 +1,23 @@
+[
+  {
+    "id": "cowells",
+    "name": "Cowells",
+    "source": {"kind": "snapshot", "url": "https://cmgp-coastcam.s3-us-west-2.amazonaws.com/cameras/dreaminn/latest/c2_snap.jpg"},
+    "waterRegion": {"points": [[0.05,0.45],[0.95,0.40],[0.95,0.75],[0.05,0.80]]},
+    "surfValue": "good"
+  },
+  {
+    "id": "seacliff",
+    "name": "Seacliff · Aptos",
+    "source": {"kind": "hls", "url": "https://video.parks.ca.gov/Seacliff/Seacliff.stream/playlist.m3u8"},
+    "waterRegion": {"points": [[0.0,0.5],[1.0,0.5],[1.0,0.9],[0.0,0.9]]},
+    "surfValue": "ok"
+  },
+  {
+    "id": "pleasure-point",
+    "name": "Pleasure Point",
+    "source": {"kind": "youtube", "url": ""},
+    "waterRegion": {"points": [[0,0],[0,0],[0,0]]},
+    "surfValue": "locked"
+  }
+]
