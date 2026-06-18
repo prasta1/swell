@@ -1,10 +1,14 @@
 import Foundation
+import CoreGraphics
 
 /// One detector result. `count` is nil when the detector could not produce a
 /// reading (so the UI shows "—" instead of a misleading 0).
 struct Detection: Equatable {
     var count: Int?
     var confidence: Double   // 0...1 mean box confidence
+    /// Per-person boxes in full-frame normalized coordinates (top-left origin),
+    /// for drawing the detection overlay. Empty when not needed (e.g. sampling).
+    var boxes: [CGRect] = []
 }
 
 /// One persisted sample for a spot at a point in time. `timestamp` is the

@@ -22,7 +22,7 @@ struct SwellApp: App {
         self.titleGenerator = titleGenerator
         let vm = MenuViewModel(registry: registry, store: store, calendarService: calendarService, titleGenerator: titleGenerator)
         _vm = StateObject(wrappedValue: vm)
-        _camViewer = StateObject(wrappedValue: CamViewerModel(spots: registry.spots))
+        _camViewer = StateObject(wrappedValue: CamViewerModel(spots: registry.spots, detector: detector))
         sampler = Sampler(registry: registry, store: store, detector: detector,
                           conditions: ConditionsService())
         try? SMAppService.mainApp.register()   // launch at login
