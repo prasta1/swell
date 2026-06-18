@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Usage: ./scripts/release.sh <version> [path/to/Swell.zip]
+# Usage: ./scripts/release.sh <version> <path/to/Swell.dmg>
 #
 # 1. Verifies the working tree is clean
 # 2. Tags the commit as v<version>
 # 3. Pushes the tag
 # 4. Creates a GitHub release with notes extracted from CHANGELOG.md
-# 5. Attaches a build artifact if provided (e.g. the exported .app zip)
+# 5. Attaches the .dmg as a release asset
 #
 # Before running:
 #   - Bump CFBundleShortVersionString in Sources/Info.plist to match <version>
@@ -17,9 +17,14 @@ set -euo pipefail
 VERSION="${1:-}"
 ARTIFACT="${2:-}"
 
-if [[ -z "$VERSION" ]]; then
-    echo "Usage: $0 <version> [artifact.zip]"
-    echo "  e.g. $0 1.0.0 ~/Desktop/Swell.zip"
+if [[ -z "$VERSION" || -z "$ARTIFACT" ]]; then
+    echo "Usage: $0 <version> <path/to/Swell.dmg>"
+    echo "  e.g. $0 1.0.0 ~/Desktop/Swell.dmg"
+    exit 1
+fi
+
+if [[ ! -f "$ARTIFACT" ]]; then
+    echo "Error: artifact not found: $ARTIFACT"
     exit 1
 fi
 
@@ -51,16 +56,9 @@ git tag "$TAG"
 git push origin "$TAG"
 
 echo "Creating GitHub release $TAG on $REPO..."
-if [[ -n "$ARTIFACT" && -f "$ARTIFACT" ]]; then
-    gh release create "$TAG" "$ARTIFACT" \
-        --repo "$REPO" \
-        --title "Swell $TAG" \
-        --notes "$NOTES"
-else
-    gh release create "$TAG" \
-        --repo "$REPO" \
-        --title "Swell $TAG" \
-        --notes "$NOTES"
-fi
+gh release create "$TAG" "$ARTIFACT" \
+    --repo "$REPO" \
+    --title "Swell $TAG" \
+    --notes "$NOTES"
 
 echo "Done — https://github.com/$REPO/releases/tag/$TAG"

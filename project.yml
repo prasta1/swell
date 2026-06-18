@@ -24,6 +24,7 @@ targets:
       properties:
         LSUIElement: true
         CFBundleDisplayName: Swell
+        NSCalendarsUsageDescription: "Swell creates calendar events so you can block time to go surf."
     settings:
       SWIFT_VERSION: "5.9"
   SwellTests:
