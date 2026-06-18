@@ -17,6 +17,17 @@ protocol CalendarService: Sendable {
     ///   - title: The event title (e.g., "Underwater Basket Weaving").
     /// - Throws: CalendarError if access denied or save fails.
     func createEvent(duration: TimeInterval, title: String) async throws
+
+    /// Returns the writable event calendars the user can pick as a target.
+    /// Empty if calendar access has not been granted.
+    func availableCalendars() -> [CalendarInfo]
+}
+
+/// Lightweight description of a calendar for the settings picker.
+struct CalendarInfo: Identifiable, Sendable {
+    /// The `EKCalendar.calendarIdentifier`, persisted as the chosen calendar.
+    let id: String
+    let title: String
 }
 
 /// Errors that can occur when interacting with the calendar.
@@ -83,8 +94,7 @@ final class EventKitCalendarService: CalendarService {
             guard granted else { throw CalendarError.accessDenied }
         }
 
-        // Use the default calendar for new events
-        guard let calendar = store.defaultCalendarForNewEvents else {
+        guard let calendar = resolvedCalendar() else {
             throw CalendarError.noDefaultCalendar
         }
 
@@ -100,5 +110,23 @@ final class EventKitCalendarService: CalendarService {
         } catch {
             throw CalendarError.saveFailed(error)
         }
+    }
+
+    func availableCalendars() -> [CalendarInfo] {
+        store.calendars(for: .event)
+            .filter { $0.allowsContentModifications }
+            .map { CalendarInfo(id: $0.calendarIdentifier, title: $0.title) }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    /// Picks the user's chosen calendar (from Settings) if it still exists and
+    /// is writable; otherwise falls back to the system default for new events.
+    private func resolvedCalendar() -> EKCalendar? {
+        if let id = SettingsStore.shared.defaultCalendarID,
+           let chosen = store.calendar(withIdentifier: id),
+           chosen.allowsContentModifications {
+            return chosen
+        }
+        return store.defaultCalendarForNewEvents
     }
 }

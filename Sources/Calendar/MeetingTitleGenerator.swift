@@ -78,3 +78,26 @@ actor StaticTitleGeneratorActor: MeetingTitleGenerator {
         await generator.generateTitle()
     }
 }
+
+/// Routes title generation to whichever backend the user picked in Settings.
+/// Reads `SettingsStore.titleBackend` on every call so the choice takes effect
+/// immediately, and reuses a single MLX generator so the model downloads once.
+@MainActor
+final class BackendSelectingTitleGenerator: MeetingTitleGenerator {
+    private let settings: SettingsStore
+    private let staticGenerator = StaticTitleGeneratorActor()
+    private lazy var mlxGenerator = MLXTitleGenerator()
+
+    init(settings: SettingsStore = .shared) {
+        self.settings = settings
+    }
+
+    func generateTitle() async -> String {
+        switch settings.titleBackend {
+        case .staticTitles:
+            return await staticGenerator.generateTitle()
+        case .mlx:
+            return await mlxGenerator.generateTitle()
+        }
+    }
+}

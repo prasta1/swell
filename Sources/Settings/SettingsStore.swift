@@ -5,7 +5,7 @@ import Foundation
 final class SettingsStore {
     static let shared = SettingsStore()
 
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
 
     // Keys
     private enum Key: String {
@@ -51,5 +51,8 @@ final class SettingsStore {
         set { defaults.set(newValue, forKey: Key.defaultCalendarID.rawValue) }
     }
 
-    private init() {}
+    /// - Parameter defaults: backing store; inject a throwaway instance in tests.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
 }

@@ -1,1 +1,1 @@
-{"properties":{"windSpeed":{"value":9.7},"windDirection":{"value":290}}}
+{"properties":{"periods":[{"number":1,"windSpeed":"10 mph","windDirection":"WNW"},{"number":2,"windSpeed":"12 mph","windDirection":"W"}]}}
