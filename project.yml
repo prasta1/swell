@@ -7,6 +7,12 @@ packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift.git
     from: "7.0.0"
+  MLX:
+    url: https://github.com/ml-explore/mlx-swift.git
+    from: "0.20.0"
+  MLXLM:
+    url: https://github.com/ml-explore/mlx-swift-lm.git
+    revision: "2.31.3"
 targets:
   Swell:
     type: application
@@ -17,14 +23,20 @@ targets:
         buildPhase: resources
       - path: Resources/SurferYOLO.mlpackage
         buildPhase: sources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
     dependencies:
       - package: GRDB
+      - package: MLX
+      - product: MLXLLM
+        package: MLXLM
     info:
       path: Sources/Info.plist
       properties:
         LSUIElement: true
         CFBundleDisplayName: Swell
         NSCalendarsUsageDescription: "Swell creates calendar events so you can block time to go surf."
+        NSLocationWhenInUseUsageDescription: "Swell uses your location to show nearby surf spots and conditions."
     settings:
       SWIFT_VERSION: "5.9"
   SwellTests:

@@ -17,12 +17,14 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.6969</string>
+	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Swell creates calendar events so you can block time to go surf.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Swell uses your location to show nearby surf spots and conditions.</string>
 </dict>
 </plist>
