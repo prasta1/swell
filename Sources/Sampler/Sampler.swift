@@ -36,7 +36,13 @@ final class Sampler: ObservableObject {
             let source = makeSource(spot.source)
             do {
                 let frame = try await source.currentFrame()
-                let det = try detector.count(in: frame.image, region: spot.waterRegion)
+                // Tiled detection runs several inferences; keep it off the main
+                // actor so a sampling pass never freezes the menubar UI.
+                let detector = self.detector
+                let region = spot.waterRegion
+                let det = try await Task.detached(priority: .utility) {
+                    try detector.count(in: frame.image, region: region)
+                }.value
                 try store.append(Sample(spotID: spot.id, timestamp: frame.timestamp,
                                         count: det.count, confidence: det.confidence))
             } catch {

@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Vision
 
 /// Counts people inside a cam's water region using the bundled YOLO11n Core ML
@@ -12,31 +13,62 @@ struct YOLODetector: SurferDetector {
         model = try VNCoreMLModel(for: mlModel)
     }
 
+    // MARK: - Tuning
+
+    /// Target max tile size in pixels. Tiles are detected at the model's 640px
+    /// input, so keeping tiles near this size means distant surfers aren't
+    /// shrunk below what the model can find.
+    static let maxTilePx: CGFloat = 640
+    /// Fractional overlap between tiles, so a surfer on a seam still appears
+    /// whole in at least one tile.
+    static let tileOverlap: CGFloat = 0.2
+    /// IoU above which two boxes (e.g. the same surfer caught in two overlapping
+    /// tiles) are treated as duplicates when merging.
+    static let mergeIoU = 0.45
+    /// Minimum `person` confidence to keep a detection.
+    static let minConfidence: Float = 0.25
+
+    /// A detection box (full-frame normalized, top-left origin) with its score.
+    struct ScoredBox: Equatable {
+        var rect: CGRect
+        var score: Float
+    }
+
     func count(in frame: CGImage, region: WaterRegion) throws -> Detection {
         let regionRect = Self.regionRectPx(frame, region: region)
-        let cropped = frame.cropping(to: regionRect)
-        // If the crop fails, analyze the whole frame and map boxes against it so
-        // the overlay stays aligned with what was actually scanned.
-        let analysisImage = cropped ?? frame
-        let analysisRect = cropped == nil
-            ? CGRect(x: 0, y: 0, width: frame.width, height: frame.height)
-            : regionRect
+        let imageBounds = CGRect(x: 0, y: 0, width: frame.width, height: frame.height)
+        let tiles = Self.tiles(in: regionRect, maxTile: Self.maxTilePx,
+                               overlap: Self.tileOverlap, imageBounds: imageBounds)
 
+        // Detect within each tile (so distant surfers fill more of the 640px
+        // input), then merge across tiles with NMS so a surfer caught in two
+        // overlapping tiles is only counted once.
+        var scored: [ScoredBox] = []
+        for tile in tiles {
+            scored += try detect(in: frame, tile: tile)
+        }
+        let merged = Self.nonMaxSuppress(scored, iouThreshold: Self.mergeIoU)
+
+        let conf = merged.isEmpty ? 0
+            : merged.map { Double($0.score) }.reduce(0, +) / Double(merged.count)
+        return Detection(count: merged.count, confidence: conf, boxes: merged.map { $0.rect })
+    }
+
+    /// Runs the model on one tile and returns its `person` boxes in full-frame
+    /// normalized coordinates.
+    private func detect(in frame: CGImage, tile: CGRect) throws -> [ScoredBox] {
+        guard let cropped = frame.cropping(to: tile) else { return [] }
         let request = VNCoreMLRequest(model: model)
         request.imageCropAndScaleOption = .scaleFit
-        let handler = VNImageRequestHandler(cgImage: analysisImage, options: [:])
-        try handler.perform([request])
+        try VNImageRequestHandler(cgImage: cropped, options: [:]).perform([request])
         let obs = (request.results as? [VNRecognizedObjectObservation]) ?? []
-        let people = obs.filter { ob in
-            (ob.labels.first(where: { $0.identifier == "person" })?.confidence ?? 0) > 0.25
+        return obs.compactMap { ob in
+            guard let score = ob.labels.first(where: { $0.identifier == "person" })?.confidence,
+                  score > Self.minConfidence else { return nil }
+            let rect = Self.fullFrameBox(visionBox: ob.boundingBox, cropRectPx: tile,
+                                         imageWidth: frame.width, imageHeight: frame.height)
+            return ScoredBox(rect: rect, score: score)
         }
-        let conf = people.isEmpty ? 0
-            : people.map { Double($0.confidence) }.reduce(0, +) / Double(people.count)
-        let boxes = people.map {
-            Self.fullFrameBox(visionBox: $0.boundingBox, cropRectPx: analysisRect,
-                              imageWidth: frame.width, imageHeight: frame.height)
-        }
-        return Detection(count: people.count, confidence: conf, boxes: boxes)
     }
 
     /// Pixel rect of the water-region bounding box; the whole image if the
@@ -63,5 +95,54 @@ struct YOLODetector: SurferDetector {
         let widthPx = visionBox.width * cropRectPx.width
         let heightPx = visionBox.height * cropRectPx.height
         return CGRect(x: xPx / w, y: yPx / h, width: widthPx / w, height: heightPx / h)
+    }
+
+    /// Splits `region` into an overlapping grid of tiles, each ≤ ~`maxTile` on a
+    /// side, clamped to the image. Wide-short water regions yield more columns
+    /// than rows.
+    static func tiles(in region: CGRect, maxTile: CGFloat, overlap: CGFloat, imageBounds: CGRect) -> [CGRect] {
+        guard region.width > 0, region.height > 0 else { return [] }
+        let cols = max(1, Int(ceil(region.width / maxTile)))
+        let rows = max(1, Int(ceil(region.height / maxTile)))
+        let stepX = region.width / CGFloat(cols)
+        let stepY = region.height / CGFloat(rows)
+        let padX = stepX * overlap
+        let padY = stepY * overlap
+        var rects: [CGRect] = []
+        for row in 0..<rows {
+            for col in 0..<cols {
+                let raw = CGRect(x: region.minX + CGFloat(col) * stepX - padX,
+                                 y: region.minY + CGFloat(row) * stepY - padY,
+                                 width: stepX + 2 * padX,
+                                 height: stepY + 2 * padY)
+                let clamped = raw.intersection(imageBounds)
+                if !clamped.isNull, clamped.width > 1, clamped.height > 1 {
+                    rects.append(clamped)
+                }
+            }
+        }
+        return rects
+    }
+
+    /// Intersection-over-union of two rects (0 when disjoint).
+    static func iou(_ a: CGRect, _ b: CGRect) -> Double {
+        let inter = a.intersection(b)
+        guard !inter.isNull else { return 0 }
+        let interArea = Double(inter.width * inter.height)
+        let union = Double(a.width * a.height + b.width * b.height) - interArea
+        return union > 0 ? interArea / union : 0
+    }
+
+    /// Greedy non-maximum suppression: keep the highest-scoring box, drop any
+    /// box overlapping it beyond `iouThreshold`, repeat.
+    static func nonMaxSuppress(_ boxes: [ScoredBox], iouThreshold: Double) -> [ScoredBox] {
+        var candidates = boxes.sorted { $0.score > $1.score }
+        var kept: [ScoredBox] = []
+        while !candidates.isEmpty {
+            let best = candidates.removeFirst()
+            kept.append(best)
+            candidates.removeAll { iou(best.rect, $0.rect) > iouThreshold }
+        }
+        return kept
     }
 }
