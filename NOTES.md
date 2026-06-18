@@ -47,29 +47,33 @@ have NO genuinely-public cam. Their only cams are **Surfline** (excluded) and, o
 beach/inside zones + Aptos/Pajaro beachbreaks. Cowells is the one real point-break lineup
 publicly visible. This may warrant revisiting the YouTube-Live exclusion.
 
-## ▶ RESUME HERE (Tasks 1–6 done, 2026-06-17)
+## ▶ STATUS: all 12 tasks implemented (2026-06-17)
 
-**Status:** Inline execution of the plan, via superpowers:executing-plans.
-- Branch: `feature/initial-build` (git initialized)
-- **Tasks 1–6 DONE & committed.** Toolchain verified (xcodegen 2.45.4, Xcode 27,
-  Swift 6.4). All **12 unit tests green**.
-  - T1 scaffold (`b42e05a`), T2 model types (`1c44a07`), T3 registry + 10-spot
-    cam list (`be1801d`), T4–5 HistoryStore + median + trend (`17016ab`),
-    T6 ConditionsService parsers (`cb1d491`).
-  - project.yml gotchas resolved: test fixtures need a `buildPhase: resources`
-    path + `GENERATE_INFOPLIST_FILE: YES` on the test target.
-- Model in place: `Resources/SurferYOLO.mlpackage` (YOLO11n, AGPL-3.0, from
-  HF `TheCluster/YOLOv11-CoreML`). Currently **untracked** — Task 9 commits it.
-- **NEXT: Tasks 7–12** (integration half): FrameSource protocol + SnapshotSource
-  (T7), HLSSource (T8), YOLODetector (T9 — has real-frame calibration risk,
-  checkpoint here), SolarClock + Sampler (T10), menubar UI (T11), app wiring +
-  launch-at-login (T12).
+**Branch:** `feature/initial-build`. App builds, launches, runs. **13/13 tests green.**
+All 12 plan tasks committed (T1 `b42e05a` … T12 `410931f`).
 
-**To resume:** "continue the Swell plan from Task 7" — plan at
-`docs/superpowers/plans/2026-06-17-swell.md`; this session has full context, or a
-fresh session can read NOTES.md + the plan.
+**Verified working:** scaffold + GRDB + MenuBarExtra; model types; SpotRegistry +
+10-spot cam list (now actually bundled); HistoryStore + weekday×hour median + trend;
+ConditionsService parsers; FrameSource/Snapshot/HLS; YOLODetector (Vision pipeline
+proven — 3 detections on canonical image); SolarClock + Sampler; menubar UI; app
+wiring + launch-at-login. App launches, creates its SQLite store, daylight gate
+correctly suppresses night sampling.
 
-Build check: `xcodebuild test -project Swell.xcodeproj -scheme Swell -destination 'platform=macOS'`
+### ⚠️ Two real follow-ups (not done)
+1. **Detector recall** — yolo11n at 640px finds 0 surfers on a real Cowells frame
+   (too small/distant). Needs the plan's Task 9 Step 5: tile the water region
+   (and/or yolo11s, and/or surfboard cross-check), tuned against real daytime
+   frames with your eyes. The pipeline is correct; recall is the open work.
+2. **Login-item in dev** — `SMAppService.mainApp.register()` runs unconditionally,
+   so it registered the DerivedData build as a login item. Consider gating behind
+   `#if !DEBUG` or a Settings toggle. Was registered once during launch test.
+
+### Also pending
+- Populated-UI visual check (best in daylight, ~6am–8pm, when cams have surfers
+  and conditions fetch fires).
+- HD Relay cam #7 location + buoy/tide/NWS-gridpoint URL confirmation (spec open items).
+
+**Build/test:** `xcodebuild test -project Swell.xcodeproj -scheme Swell -destination 'platform=macOS'`
 
 ## Completed steps
 
