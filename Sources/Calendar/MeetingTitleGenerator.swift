@@ -88,8 +88,10 @@ final class BackendSelectingTitleGenerator: MeetingTitleGenerator {
     private let staticGenerator = StaticTitleGeneratorActor()
     private lazy var mlxGenerator = MLXTitleGenerator()
 
-    init(settings: SettingsStore = .shared) {
-        self.settings = settings
+    // Resolve `.shared` inside the init (a main-actor context) rather than as a
+    // default argument, which would be evaluated in a nonisolated context.
+    init(settings: SettingsStore? = nil) {
+        self.settings = settings ?? .shared
     }
 
     func generateTitle() async -> String {

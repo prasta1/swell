@@ -45,11 +45,13 @@ final class MenuViewModel: ObservableObject {
     private let titleGenerator: MeetingTitleGenerator
     private let settings: SettingsStore
 
-    init(registry: SpotRegistry, store: HistoryStore, calendarService: CalendarService, titleGenerator: MeetingTitleGenerator, settings: SettingsStore = .shared) {
+    init(registry: SpotRegistry, store: HistoryStore, calendarService: CalendarService, titleGenerator: MeetingTitleGenerator, settings: SettingsStore? = nil) {
         self.registry = registry
         self.store = store
         self.calendarService = calendarService
         self.titleGenerator = titleGenerator
+        // Resolve `.shared` here (main-actor init), not as a default argument.
+        let settings = settings ?? .shared
         self.settings = settings
         // Initializing assignment — does not fire didSet, so we don't write back
         // the value we just read.

@@ -258,7 +258,12 @@ private struct DetectionOverlayView: View {
         let source: FrameSource = spot.source.kind == .hls ? HLSSource(url: url) : SnapshotSource(url: url)
         do {
             let frame = try await source.currentFrame()
-            let result = try detector.count(in: frame.image, region: spot.waterRegion)
+            // Tiled detection is several inferences; run it off the main actor.
+            let detector = self.detector
+            let region = spot.waterRegion
+            let result = try await Task.detached(priority: .userInitiated) {
+                try detector.count(in: frame.image, region: region)
+            }.value
             image = frame.image
             detection = result
         } catch {
