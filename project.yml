@@ -11,8 +11,13 @@ targets:
   Swell:
     type: application
     platform: macOS
-    sources: [Sources]
-    resources: [Resources]
+    sources:
+      - path: Sources
+      - path: Resources/SurferYOLO.mlpackage
+        buildPhase: sources
+    resources:
+      - path: Resources
+        excludes: ["SurferYOLO.mlpackage", "SurferYOLO.mlpackage/**"]
     dependencies:
       - package: GRDB
     info:
