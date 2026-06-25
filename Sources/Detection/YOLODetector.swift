@@ -49,9 +49,19 @@ struct YOLODetector: SurferDetector {
         }
         let merged = Self.nonMaxSuppress(scored, iouThreshold: Self.mergeIoU)
 
-        let conf = merged.isEmpty ? 0
-            : merged.map { Double($0.score) }.reduce(0, +) / Double(merged.count)
-        return Detection(count: merged.count, confidence: conf, boxes: merged.map { $0.rect })
+        // Tile overlap padding can extend tiles outside the region boundary, so
+        // drop any box whose center landed outside the region after mapping back
+        // to full-frame coordinates.
+        let w = CGFloat(frame.width), h = CGFloat(frame.height)
+        let regionNorm = CGRect(x: regionRect.minX / w, y: regionRect.minY / h,
+                                width: regionRect.width / w, height: regionRect.height / h)
+        let inRegion = merged.filter {
+            regionNorm.contains(CGPoint(x: $0.rect.midX, y: $0.rect.midY))
+        }
+
+        let conf = inRegion.isEmpty ? 0
+            : inRegion.map { Double($0.score) }.reduce(0, +) / Double(inRegion.count)
+        return Detection(count: inRegion.count, confidence: conf, boxes: inRegion.map { $0.rect })
     }
 
     /// Runs the model on one tile and returns its `person` boxes in full-frame
