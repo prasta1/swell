@@ -16,21 +16,20 @@ struct YouTubeSource: FrameSource {
         videoID = id
     }
 
-    /// The live-thumbnail URL for this stream. Only returns a current frame while
-    /// the stream is active; returns HTTP 404 when the stream is offline.
-    var thumbnailURL: URL {
-        URL(string: "https://i.ytimg.com/vi/\(videoID)/maxresdefault_live.jpg")!
-    }
-
     func currentFrame() async throws -> FrameResult {
-        let (data, response) = try await URLSession.shared.data(from: thumbnailURL)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw FrameSourceError.unreachable
+        // Try the live-frame thumbnail first (updates ~30s, only exists while streaming),
+        // then fall back to the static poster (always available). This ensures the viewer
+        // shows the cam even when the stream is idle between broadcasts.
+        let suffixes = ["maxresdefault_live.jpg", "hqdefault_live.jpg",
+                        "maxresdefault.jpg", "hqdefault.jpg"]
+        for suffix in suffixes {
+            let url = URL(string: "https://i.ytimg.com/vi/\(videoID)/\(suffix)")!
+            guard let (data, response) = try? await URLSession.shared.data(from: url),
+                  (response as? HTTPURLResponse)?.statusCode == 200,
+                  let src = CGImageSourceCreateWithData(data as CFData, nil),
+                  let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { continue }
+            return FrameResult(image: img, timestamp: Date())
         }
-        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
-              let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
-            throw FrameSourceError.decodeFailed
-        }
-        return FrameResult(image: img, timestamp: Date())
+        throw FrameSourceError.unreachable
     }
 }
