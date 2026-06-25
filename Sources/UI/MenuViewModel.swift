@@ -73,7 +73,7 @@ final class MenuViewModel: ObservableObject {
                 freshness: freshnessLabel(spot: spot, sample: latest, now: now),
                 lowSignal: spot.surfValue == .lowSignal,
                 sourceKind: spot.source.kind,
-                camURL: URL(string: spot.source.url)
+                camURL: spot.source.url.isEmpty ? nil : URL(string: spot.source.url)
             )
         }
     }

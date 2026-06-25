@@ -6,6 +6,8 @@ struct NormalizedPoint: Codable, Equatable {
     var x: Double
     var y: Double
 
+    init(x: Double, y: Double) { self.x = x; self.y = y }
+
     init(from decoder: Decoder) throws {
         var c = try decoder.unkeyedContainer()
         x = try c.decode(Double.self)

@@ -29,7 +29,7 @@ struct SpotRow: View {
         .opacity(row.surfValue == .locked ? 0.45 : (row.lowSignal ? 0.65 : 1))
         .padding(.horizontal, 14).padding(.vertical, 9)
         .contextMenu {
-            if row.sourceKind != .youtube && row.surfValue != .locked {
+            if row.surfValue != .locked && (row.sourceKind != .youtube || row.camURL != nil) {
                 Button("View Live Cam") { onViewCam(row.id) }
                 if let url = row.camURL {
                     Button("Open Cam in Browser") { openURL(url) }

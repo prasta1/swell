@@ -6,7 +6,7 @@ import AVKit
 /// `SwellApp`; the menubar sets `selectedSpotID` before opening the window.
 @MainActor
 final class CamViewerModel: ObservableObject {
-    let spots: [Spot]
+    @Published var spots: [Spot]
     let detector: SurferDetector
     @Published var selectedSpotID: String?
 
@@ -15,10 +15,19 @@ final class CamViewerModel: ObservableObject {
         self.detector = detector
     }
 
-    /// Spots that actually have a viewable feed (excludes locked gap-spots and
-    /// the YouTube placeholder kind).
+    /// Spots that actually have a viewable feed (excludes locked spots and YouTube
+    /// placeholder entries that have no URL yet).
     var viewableSpots: [Spot] {
-        spots.filter { $0.source.kind != .youtube && $0.surfValue != .locked }
+        spots.filter { $0.surfValue != .locked && ($0.source.kind != .youtube || !$0.source.url.isEmpty) }
+    }
+
+    /// Persists a tuned water region for the given spot and updates the in-memory
+    /// list immediately so the overlay reflects the change without a relaunch.
+    func saveWaterRegion(_ region: WaterRegion, forSpotID spotID: String) {
+        SpotRegistry.saveWaterRegion(region, forSpotID: spotID)
+        if let i = spots.firstIndex(where: { $0.id == spotID }) {
+            spots[i].waterRegion = region
+        }
     }
 }
 
@@ -37,20 +46,22 @@ struct CamViewerView: View {
         NavigationSplitView {
             List(model.viewableSpots, selection: $model.selectedSpotID) { spot in
                 Label(spot.name, systemImage: icon(for: spot))
+                    .padding(.vertical, 3)
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 230, max: 300)
         } detail: {
             if let spot = selectedSpot {
-                CamFeedView(spot: spot, mode: mode, detector: model.detector)
+                CamFeedView(spot: spot, mode: mode, detector: model.detector,
+                            onSaveRegion: { model.saveWaterRegion($0, forSpotID: spot.id) })
                     .id(spot.id)   // tear down/rebuild the player or analysis on spot change
                     .navigationTitle(spot.name)
             } else {
                 ContentUnavailableView("Select a cam", systemImage: "video")
             }
         }
-        .frame(minWidth: 560, minHeight: 360)
+        .frame(minWidth: 620, minHeight: 420)
         .toolbar {
-            if let spot = selectedSpot, spot.source.kind != .youtube {
+            if let spot = selectedSpot, spot.surfValue != .locked {
                 ToolbarItem(placement: .principal) {
                     Picker("Mode", selection: $mode) {
                         Text("Live").tag(FeedMode.live)
@@ -80,7 +91,11 @@ struct CamViewerView: View {
     }
 
     private func icon(for spot: Spot) -> String {
-        spot.source.kind == .hls ? "video" : "photo"
+        switch spot.source.kind {
+        case .hls:      "video"
+        case .youtube:  "play.rectangle"
+        case .snapshot: "photo"
+        }
     }
 }
 
@@ -89,15 +104,17 @@ private struct CamFeedView: View {
     let spot: Spot
     let mode: FeedMode
     let detector: SurferDetector
+    let onSaveRegion: (WaterRegion) -> Void
 
     var body: some View {
-        if spot.source.kind == .youtube {
+        if spot.source.kind == .youtube && spot.source.url.isEmpty {
             ContentUnavailableView("Preview unavailable", systemImage: "video.slash",
                                    description: Text("This spot has no public cam feed yet."))
         } else {
             switch mode {
             case .live:       liveView
-            case .detections: DetectionOverlayView(spot: spot, detector: detector)
+            case .detections: DetectionOverlayView(spot: spot, detector: detector,
+                                                   onSaveRegion: onSaveRegion)
             }
         }
     }
@@ -106,7 +123,7 @@ private struct CamFeedView: View {
         switch spot.source.kind {
         case .hls:      HLSFeedView(url: URL(string: spot.source.url))
         case .snapshot: SnapshotFeedView(url: URL(string: spot.source.url))
-        case .youtube:  EmptyView()   // handled above
+        case .youtube:  YouTubeFeedView(watchURLString: spot.source.url)
         }
     }
 }
@@ -134,6 +151,47 @@ private struct HLSFeedView: View {
         .onDisappear {
             player?.pause()
             player = nil
+        }
+    }
+}
+
+/// YouTube live cams: calls YouTubeSource.currentFrame() which tries the live
+/// thumbnail first, then falls back to the static poster. Refreshes every 60s.
+private struct YouTubeFeedView: View {
+    let watchURLString: String
+    @State private var image: CGImage?
+    @State private var errorMessage: String?
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else if let errorMessage {
+                ContentUnavailableView("Couldn't load snapshot", systemImage: "exclamationmark.triangle",
+                                       description: Text(errorMessage))
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task(id: watchURLString) {
+            guard let watchURL = URL(string: watchURLString),
+                  let source = YouTubeSource(watchURL: watchURL) else {
+                errorMessage = "Invalid YouTube URL."
+                return
+            }
+            while !Task.isCancelled {
+                do {
+                    let frame = try await source.currentFrame()
+                    image = frame.image
+                    errorMessage = nil
+                } catch {
+                    if image == nil { errorMessage = "Cam snapshot unreachable." }
+                }
+                try? await Task.sleep(nanoseconds: 60_000_000_000)   // 60s
+            }
         }
     }
 }
@@ -180,15 +238,18 @@ private struct SnapshotFeedView: View {
 private struct DetectionOverlayView: View {
     let spot: Spot
     let detector: SurferDetector
+    let onSaveRegion: (WaterRegion) -> Void
 
     @State private var image: CGImage?
     @State private var detection: Detection?
     @State private var isAnalyzing = false
     @State private var errorMessage: String?
+    @State private var isEditingRegion = false
+    @State private var editablePoints: [NormalizedPoint] = []
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
+        ZStack(alignment: .bottom) {
+            Group {
                 if let image {
                     annotatedFrame(image)
                 } else if let errorMessage {
@@ -200,7 +261,6 @@ private struct DetectionOverlayView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            Divider()
             statusBar
         }
         .task { await analyze() }
@@ -213,9 +273,15 @@ private struct DetectionOverlayView: View {
                 Image(decorative: image, scale: 1)
                     .resizable()
                     .frame(width: fit.width, height: fit.height)
-                WaterRegionShape(points: spot.waterRegion.points)
-                    .stroke(Color.yellow.opacity(0.9), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                    .frame(width: fit.width, height: fit.height)
+                if isEditingRegion {
+                    RegionEditorOverlay(points: $editablePoints, frameRect: fit)
+                        .frame(width: fit.width, height: fit.height)
+                } else {
+                    WaterRegionShape(points: spot.waterRegion.points)
+                        .stroke(Color.yellow.opacity(0.9), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                        .frame(width: fit.width, height: fit.height)
+                }
+                // Detection boxes always rendered so results are visible while editing
                 ForEach(Array((detection?.boxes ?? []).enumerated()), id: \.offset) { _, box in
                     Rectangle()
                         .stroke(Color.green, lineWidth: 2)
@@ -229,25 +295,65 @@ private struct DetectionOverlayView: View {
     }
 
     private var statusBar: some View {
-        HStack(spacing: 8) {
-            if isAnalyzing {
-                ProgressView().controlSize(.small)
-                Text("Analyzing…").foregroundStyle(.secondary)
-            } else if let detection {
-                let n = detection.count ?? 0
-                Image(systemName: "figure.surfing").foregroundStyle(.green)
-                Text("\(n) surfer\(n == 1 ? "" : "s") in the water region")
+        HStack(spacing: 10) {
+            if isEditingRegion {
+                Text("\(editablePoints.count) points")
                     .font(.system(size: 12, weight: .medium))
-                Text("· avg conf \(String(format: "%.2f", detection.confidence))")
+                Text("· drag to move  ·  click ◦ to add  ·  right-click to remove")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
+                if isAnalyzing {
+                    ProgressView().controlSize(.small)
+                } else if let detection {
+                    let n = detection.count ?? 0
+                    Image(systemName: "figure.surfing").foregroundStyle(.green)
+                    Text("\(n) surfer\(n == 1 ? "" : "s")").font(.system(size: 12, weight: .medium))
+                }
+                Spacer()
+                Button { Task { await analyze() } } label: {
+                    Label("Re-analyze", systemImage: "arrow.clockwise")
+                }
+                .disabled(isAnalyzing)
+                Button("Cancel") { isEditingRegion = false }
+                Button("Save Region") {
+                    let region = WaterRegion(points: editablePoints)
+                    onSaveRegion(region)
+                    isEditingRegion = false
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                if isAnalyzing {
+                    ProgressView().controlSize(.small)
+                    Text("Analyzing…").foregroundStyle(.secondary)
+                } else if let detection {
+                    let n = detection.count ?? 0
+                    Image(systemName: "figure.surfing").foregroundStyle(.green)
+                    Text("\(n) surfer\(n == 1 ? "" : "s") in the water region")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("· avg conf \(String(format: "%.2f", detection.confidence))")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if image != nil {
+                    Button {
+                        editablePoints = spot.waterRegion.points
+                        detection = nil   // clear boxes from old region
+                        isEditingRegion = true
+                    } label: {
+                        Label("Edit Region", systemImage: "pencil.and.outline")
+                    }
+                    .disabled(isAnalyzing)
+                }
+                Button { Task { await analyze() } } label: {
+                    Label("Re-analyze", systemImage: "arrow.clockwise")
+                }
+                .disabled(isAnalyzing)
             }
-            Spacer()
-            Button { Task { await analyze() } } label: {
-                Label("Re-analyze", systemImage: "arrow.clockwise")
-            }
-            .disabled(isAnalyzing)
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 14)
     }
 
     @MainActor private func analyze() async {
@@ -255,12 +361,17 @@ private struct DetectionOverlayView: View {
         errorMessage = nil
         defer { isAnalyzing = false }
         guard let url = URL(string: spot.source.url) else { errorMessage = "Invalid cam URL."; return }
-        let source: FrameSource = spot.source.kind == .hls ? HLSSource(url: url) : SnapshotSource(url: url)
+        let source: FrameSource
+        switch spot.source.kind {
+        case .hls:      source = HLSSource(url: url)
+        case .youtube:  source = YouTubeSource(watchURL: url) ?? SnapshotSource(url: url)
+        case .snapshot: source = SnapshotSource(url: url)
+        }
         do {
             let frame = try await source.currentFrame()
             // Tiled detection is several inferences; run it off the main actor.
             let detector = self.detector
-            let region = spot.waterRegion
+            let region = isEditingRegion ? WaterRegion(points: editablePoints) : spot.waterRegion
             let result = try await Task.detached(priority: .userInitiated) {
                 try detector.count(in: frame.image, region: region)
             }.value
@@ -285,6 +396,75 @@ private struct WaterRegionShape: Shape {
         }
         path.closeSubpath()
         return path
+    }
+}
+
+/// Drag-to-edit polygon overlay. Vertex handles (●) drag to reposition; midpoint
+/// dots (◦) tap to insert a new vertex; right-click a handle to delete it.
+/// Changes write back via the binding — copy the JSON from the status bar and
+/// paste into spots.json to persist.
+private struct RegionEditorOverlay: View {
+    @Binding var points: [NormalizedPoint]
+    let frameRect: CGRect
+
+    @State private var dragStart: [Int: NormalizedPoint] = [:]
+
+    private let handleR: CGFloat = 7
+    private let midR:    CGFloat = 5
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            // Polygon outline — solid while editing
+            WaterRegionShape(points: points)
+                .stroke(Color.yellow, lineWidth: 2)
+                .frame(width: frameRect.width, height: frameRect.height)
+
+            // Edge midpoints — tap to insert a vertex between two neighbours
+            ForEach(0..<points.count, id: \.self) { i in
+                let j  = (i + 1) % points.count
+                let mx = (points[i].x + points[j].x) / 2
+                let my = (points[i].y + points[j].y) / 2
+                Circle()
+                    .fill(Color.yellow.opacity(0.35))
+                    .stroke(Color.yellow.opacity(0.75), lineWidth: 1)
+                    .frame(width: midR * 2, height: midR * 2)
+                    .offset(x: mx * frameRect.width  - midR,
+                            y: my * frameRect.height - midR)
+                    .onTapGesture {
+                        points.insert(NormalizedPoint(x: mx, y: my), at: i + 1)
+                    }
+            }
+
+            // Vertex drag handles
+            ForEach(0..<points.count, id: \.self) { i in
+                Circle()
+                    .fill(Color.white)
+                    .stroke(Color.yellow, lineWidth: 2)
+                    .frame(width: handleR * 2, height: handleR * 2)
+                    .offset(x: points[i].x * frameRect.width  - handleR,
+                            y: points[i].y * frameRect.height - handleR)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { v in
+                                guard frameRect.width > 0, frameRect.height > 0 else { return }
+                                if dragStart[i] == nil { dragStart[i] = points[i] }
+                                guard let s = dragStart[i] else { return }
+                                points[i] = NormalizedPoint(
+                                    x: max(0, min(1, s.x + v.translation.width  / frameRect.width)),
+                                    y: max(0, min(1, s.y + v.translation.height / frameRect.height))
+                                )
+                            }
+                            .onEnded { _ in dragStart[i] = nil }
+                    )
+                    .contextMenu {
+                        if points.count > 3 {
+                            Button("Delete point", role: .destructive) {
+                                points.remove(at: i)
+                            }
+                        }
+                    }
+            }
+        }
     }
 }
 

@@ -61,7 +61,7 @@ final class Sampler: ObservableObject {
         switch d.kind {
         case .snapshot: return SnapshotSource(url: url)
         case .hls: return HLSSource(url: url)
-        case .youtube: return SnapshotSource(url: url)  // placeholder until YouTubeSource lands
+        case .youtube: return YouTubeSource(watchURL: url) ?? SnapshotSource(url: url)
         }
     }
 }

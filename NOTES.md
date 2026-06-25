@@ -5,7 +5,7 @@ runs, warning-free; 38 deterministic tests green.
 
 ---
 
-## Status — 2026-06-18
+## Status — 2026-06-25
 
 App is well past MVP. On `main` now:
 
@@ -34,28 +34,39 @@ launch-at-login, onboarding window.
   Detection now runs off the main actor (sampler + overlay). Tunables in
   `YOLODetector`: `maxTilePx`, `tileOverlap`, `mergeIoU`, `minConfidence`.
 
+**This session's work (2026-06-25, on `main`):**
+- **YouTubeSource** — new `FrameSource` impl that fetches the live thumbnail at
+  `i.ytimg.com/vi/{ID}/maxresdefault_live.jpg` (updates ~30s, no API key needed).
+  Throws `unreachable` when the stream is offline (HTTP 404 → no sample recorded).
+- **Steamer Lane unlocked** — `spots.json` updated with Surfline's public YouTube
+  live stream (`bNLy-XXYxcw`; publicly viewable without a Surfline account).
+  `surfValue` changed `locked → good`; rough water region set (needs tuning).
+  Pleasure Point / The Hook / Capitola remain locked — no non-Surfline public cam
+  exists for them after exhaustive search.
+- **CamViewerView** — YouTube spots with real URLs now appear in the cam-viewer
+  sidebar (`play.rectangle` icon); Live/Detections toggle enabled; `YouTubeFeedView`
+  shows the refreshing thumbnail; Re-analyze and "Open in Browser" both work.
+- **Login-item guard** — `SMAppService.mainApp.register()` now gated behind
+  `#if !DEBUG` so DerivedData builds stop registering as login items.
+
 ---
 
 ## ▶ Next steps (resume here)
 
-1. **Visual GUI verification (do first).** Nothing in the cam window has been run
-   in the live app yet — only proven headlessly. Build, right-click a spot →
-   **View Live Cam → Detections → Re-analyze**. Confirm: HLS feeds play, snapshot
-   refreshes, overlay boxes align on the frame, the Live/Detections toggle works,
-   and the window comes to the front (`NSApp.activate()`).
-2. **Surfer-specific detector tuning.** Beachgoers detect great; surfers in a
+1. **Visual GUI verification.** Build, right-click a spot → **View Live Cam →
+   Detections → Re-analyze**. Confirm: HLS feeds play, snapshot refreshes, overlay
+   boxes align on the frame, Live/Detections toggle works, window comes to the
+   front. Also verify Steamer Lane appears in the sidebar and its thumbnail loads.
+2. **Steamer Lane water region tuning.** The current region
+   `[[0.05,0.35],[0.95,0.35],[0.95,0.82],[0.05,0.82]]` is a rough estimate. Open
+   the cam viewer → Steamer Lane → Detections → Re-analyze on a real daytime frame
+   and adjust the polygon to exclude cliff/sky, focus on the lineup.
+3. **Surfer-specific detector tuning.** Beachgoers detect great; surfers in a
    lineup are smaller/lower-contrast. Use the overlay on a real **Cowells** daytime
    lineup and tune `maxTilePx` / `minConfidence` / `tileOverlap`. If yolo11n still
    under-detects, try **yolo11s** (and/or a surfboard cross-check).
-3. **Login-item in dev** — `SMAppService.mainApp.register()` (`SwellApp.swift`) is
-   still unconditional, registering DerivedData builds as login items. Gate behind
-   `#if !DEBUG` or a Settings toggle.
-4. **YouTube / coverage gap** — marquee spots (Steamer Lane, Pleasure Point, The
-   Hook, Capitola) are `youtube`/locked placeholders with no public cam.
-   `Sampler.makeSource` falls back to `SnapshotSource` for `.youtube`. Decide:
-   revisit the YouTube-Live exclusion, or build a real `YouTubeSource`.
-5. **HD Relay cam #7** location still unconfirmed; not bundled.
-6. **Housekeeping** — plan-doc checkboxes in `docs/superpowers/plans/` are stale
+4. **HD Relay cam #7** location still unconfirmed; not bundled.
+5. **Housekeeping** — plan-doc checkboxes in `docs/superpowers/plans/` are stale
    (work done); `CHANGELOG.md` has duplicate `0.6969-beta` / `1.0.0` entries.
 
 ---
@@ -86,7 +97,7 @@ launch-at-login, onboarding window.
 | Core mode | Continuous monitoring + history (trends, "busier than usual") |
 | Monitor host | Always-on Mac (no NAS, no cloud) |
 | Interface | macOS menubar app; iOS maybe later |
-| Cam sources | **Strictly public cams only** — no Surfline, no YouTube Live (under review, see gap) |
+| Cam sources | Strictly public cams only. Surfline direct API excluded. YouTube Live now included via public thumbnail endpoint (no auth needed). |
 | "Busy" metric | Surfers in the water (count in a per-cam water region) |
 | Counting engine | Local YOLO via Core ML, tiled inference over the water region |
 
@@ -99,14 +110,14 @@ launch-at-login, onboarding window.
 | SC Wharf | HLS | low signal |
 | Walton Lighthouse · Seabright | HLS | low signal |
 | **Pajaro Dunes** | HLS (HD Relay) | OK beachbreak |
-| Pleasure Point / The Hook / Steamer Lane / Capitola | — | **locked, no public cam** |
+| **Steamer Lane** | YouTube live thumbnail (`bNLy-XXYxcw`) | **GOOD — point break lineup** |
+| Pleasure Point / The Hook / Capitola | — | **locked, no public cam** |
 
 ### ⚠️ Coverage gap
-The marquee spots (Steamer Lane, Pleasure Point, The Hook, Capitola) have **no
-genuinely-public cam** — only Surfline (excluded) and often YouTube Live (excluded).
-So strictly-public coverage = Cowells + beach/inside zones + Aptos/Pajaro
-beachbreaks. Cowells is the one real point-break lineup publicly visible. May
-warrant revisiting the YouTube-Live exclusion (see next-steps #4).
+Pleasure Point, The Hook, and Capitola have no publicly accessible cam outside
+Surfline's paid service. No community YouTube streams found after exhaustive search.
+Steamer Lane is now covered via Surfline's public YouTube channel (no subscription
+required). Water region for Steamer Lane needs real-world tuning.
 
 ### Specs / plans
 - Design spec: `docs/superpowers/specs/2026-06-17-swell-design.md`

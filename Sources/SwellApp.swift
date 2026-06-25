@@ -25,7 +25,9 @@ struct SwellApp: App {
         _camViewer = StateObject(wrappedValue: CamViewerModel(spots: registry.spots, detector: detector))
         sampler = Sampler(registry: registry, store: store, detector: detector,
                           conditions: ConditionsService())
+        #if !DEBUG
         try? SMAppService.mainApp.register()   // launch at login
+        #endif
     }
 
     var body: some Scene {

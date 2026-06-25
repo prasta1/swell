@@ -58,9 +58,9 @@
   {
     "id": "steamer-lane",
     "name": "Steamer Lane",
-    "source": {"kind": "youtube", "url": ""},
-    "waterRegion": {"points": [[0,0],[0,0],[0,0]]},
-    "surfValue": "locked"
+    "source": {"kind": "youtube", "url": "https://www.youtube.com/watch?v=bNLy-XXYxcw"},
+    "waterRegion": {"points": [[0.05,0.35],[0.95,0.35],[0.95,0.82],[0.05,0.82]]},
+    "surfValue": "good"
   },
   {
     "id": "capitola",
