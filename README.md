@@ -10,13 +10,14 @@ A macOS menubar app that monitors surf conditions and crowd counts at Santa Cruz
 
 Swell lives in your menubar and gives you a quick read on whether it's worth paddling out:
 
-- **Crowd count** — downloads frames from live surf cams and runs a YOLOv8 CoreML model to count surfers in the water
+- **Crowd count** — downloads frames from live surf cams and runs a YOLO11n CoreML model to count surfers in the water region via tiled inference
 - **Swell** — wave height (ft) and period (s) from the NDBC 46042 buoy off Monterey
 - **Tide** — current tide height and direction from NOAA CO-OPS
 - **Wind** — speed and offshore/onshore classification from NWS
 - **Trend chips** — shows whether conditions are improving or deteriorating over recent samples
 - **Daylight gating** — only samples during daylight hours via a solar clock
 - **History** — stores samples in a local SQLite database (GRDB) for trend analysis
+- **Cam viewer** — live feed window with detection overlay; interactive polygon editor for tuning each spot's water region
 - **Launch at login** — registers with `SMAppService`
 
 ## Stack
@@ -26,7 +27,7 @@ Swell lives in your menubar and gives you a quick read on whether it's worth pad
 | UI | SwiftUI `MenuBarExtra` |
 | Computer Vision | YOLOv8 via CoreML (`SurferYOLO.mlpackage`) |
 | Surf data | NDBC buoy · NOAA CO-OPS · NWS hourly |
-| Video | HLS stream + snapshot frame sources |
+| Video | HLS stream · snapshot · YouTube Live (public thumbnail endpoint) |
 | Storage | GRDB (SQLite) |
 | Language | Swift 6 |
 | Platform | macOS 15+ |
@@ -40,9 +41,9 @@ Sources/
   Model/          — Conditions, Sample, Spot, Trend value types
   Registry/       — SpotRegistry (loads spots.json)
   Sampler/        — Orchestrates periodic sampling + SolarClock daylight gate
-  Sources/        — HLSSource and SnapshotSource frame providers
+  Sources/        — HLSSource, SnapshotSource, YouTubeSource frame providers
   Store/          — HistoryStore (GRDB)
-  UI/             — MenuContentView, MenuViewModel, ConditionsStrip, SpotRow
+  UI/             — MenuContentView, MenuViewModel, ConditionsStrip, SpotRow, CamViewerView
 Resources/
   spots.json            — Spot definitions (name, cam URL, water region)
   SurferYOLO.mlpackage  — Trained CoreML model
@@ -51,6 +52,17 @@ Resources/
 ## Building
 
 Open `Swell.xcworkspace` in Xcode 16+ and build the **Swell** scheme. No additional setup required — GRDB is included as a local Swift package.
+
+## Cam coverage
+
+| Spot | Source | Signal |
+|---|---|---|
+| Cowells | HLS | good |
+| SC Wharf | HLS | low signal |
+| Walton Lighthouse · Seabright | HLS | low signal |
+| Pajaro Dunes | HLS (HD Relay) | ok |
+| **Steamer Lane** | YouTube live thumbnail | **good** |
+| Pleasure Point · The Hook · Capitola | — | locked (no public cam) |
 
 ## Data sources
 
@@ -61,4 +73,5 @@ All data sources are free and public:
 | NDBC buoy 46042 | `ndbc.noaa.gov/data/realtime2/46042.txt` |
 | NOAA CO-OPS tide (station 9413450, Monterey) | `api.tidesandcurrents.noaa.gov` |
 | NWS hourly forecast | `api.weather.gov/gridpoints/MTR/97,82/forecast/hourly` |
-| Surf cams | Public HLS / MJPEG streams |
+| Surf cams (HLS/snapshot) | Public HLS / MJPEG streams |
+| Surf cams (YouTube) | `i.ytimg.com/vi/{ID}/maxresdefault_live.jpg` (no API key) |
