@@ -35,6 +35,12 @@ struct YOLODetector: SurferDetector {
     }
 
     func count(in frame: CGImage, region: WaterRegion) throws -> Detection {
+        try count(in: frame, region: region, minConfidence: Self.minConfidence)
+    }
+
+    /// Same as `count(in:region:)` but with an explicit score cutoff, so tuning
+    /// and diagnostics can sweep the threshold without touching the default.
+    func count(in frame: CGImage, region: WaterRegion, minConfidence: Float) throws -> Detection {
         let regionRect = Self.regionRectPx(frame, region: region)
         let imageBounds = CGRect(x: 0, y: 0, width: frame.width, height: frame.height)
         let tiles = Self.tiles(in: regionRect, maxTile: Self.maxTilePx,
@@ -45,7 +51,7 @@ struct YOLODetector: SurferDetector {
         // overlapping tiles is only counted once.
         var scored: [ScoredBox] = []
         for tile in tiles {
-            scored += try detect(in: frame, tile: tile)
+            scored += try detect(in: frame, tile: tile, minConfidence: minConfidence)
         }
         let merged = Self.nonMaxSuppress(scored, iouThreshold: Self.mergeIoU)
 
@@ -66,7 +72,7 @@ struct YOLODetector: SurferDetector {
 
     /// Runs the model on one tile and returns its `person` boxes in full-frame
     /// normalized coordinates.
-    private func detect(in frame: CGImage, tile: CGRect) throws -> [ScoredBox] {
+    private func detect(in frame: CGImage, tile: CGRect, minConfidence: Float) throws -> [ScoredBox] {
         guard let cropped = frame.cropping(to: tile) else { return [] }
         let request = VNCoreMLRequest(model: model)
         request.imageCropAndScaleOption = .scaleFit
@@ -74,7 +80,7 @@ struct YOLODetector: SurferDetector {
         let obs = (request.results as? [VNRecognizedObjectObservation]) ?? []
         return obs.compactMap { ob in
             guard let score = ob.labels.first(where: { $0.identifier == "person" })?.confidence,
-                  score > Self.minConfidence else { return nil }
+                  score > minConfidence else { return nil }
             let rect = Self.fullFrameBox(visionBox: ob.boundingBox, cropRectPx: tile,
                                          imageWidth: frame.width, imageHeight: frame.height)
             return ScoredBox(rect: rect, score: score)
