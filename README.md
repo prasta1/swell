@@ -10,7 +10,7 @@ A macOS menubar app that monitors surf conditions and crowd counts at Santa Cruz
 
 Swell lives in your menubar and gives you a quick read on whether it's worth paddling out:
 
-- **Crowd count** — downloads frames from live surf cams and runs a YOLO11n CoreML model to count surfers in the water region via tiled inference
+- **Crowd count** — downloads frames from live surf cams and runs a YOLO11n CoreML model to count surfers in the water region via tiled inference. The detector is the stock COCO-pretrained model — surfers are counted as the COCO `person` class inside a per-spot water region, not by a model trained on surf footage
 - **Swell** — wave height (ft) and period (s) from the NDBC 46042 buoy off Monterey
 - **Tide** — current tide height and direction from NOAA CO-OPS
 - **Wind** — speed and offshore/onshore classification from NWS
@@ -25,7 +25,7 @@ Swell lives in your menubar and gives you a quick read on whether it's worth pad
 | Layer | Technology |
 |---|---|
 | UI | SwiftUI `MenuBarExtra` |
-| Computer Vision | YOLOv8 via CoreML (`SurferYOLO.mlpackage`) |
+| Computer Vision | Ultralytics YOLO11n (stock COCO) via CoreML (`SurferYOLO.mlpackage`) |
 | Surf data | NDBC buoy · NOAA CO-OPS · NWS hourly |
 | Video | HLS stream · snapshot · YouTube Live (public thumbnail endpoint) |
 | Storage | GRDB (SQLite) |
@@ -75,3 +75,13 @@ All data sources are free and public:
 | NWS hourly forecast | `api.weather.gov/gridpoints/MTR/97,82/forecast/hourly` |
 | Surf cams (HLS/snapshot) | Public HLS / MJPEG streams |
 | Surf cams (YouTube) | `i.ytimg.com/vi/{ID}/maxresdefault_live.jpg` (no API key) |
+
+## License
+
+Swell is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+It bundles `Resources/SurferYOLO.mlpackage`, an unmodified export of
+[Ultralytics](https://ultralytics.com) YOLO11n (COCO-pretrained), which is itself
+AGPL-3.0 licensed. Swell is AGPL-3.0 to stay consistent with those weights. If you want
+to reuse this code without the AGPL obligations, replace the model with one whose license
+permits it.
