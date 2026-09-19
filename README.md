@@ -4,7 +4,7 @@
 
 A macOS menubar app that monitors surf conditions and crowd counts at Santa Cruz, CA.
 
-![macOS](https://img.shields.io/badge/macOS-15%2B-blue) ![Swift](https://img.shields.io/badge/Swift-6-orange)
+![macOS](https://img.shields.io/badge/macOS-14%2B-blue) ![Swift](https://img.shields.io/badge/Swift-5%20mode-orange)
 
 ## What it does
 
