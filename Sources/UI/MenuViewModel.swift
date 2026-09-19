@@ -1,7 +1,7 @@
 import Foundation
 
 /// Observable state for the dropdown. Reads the latest sample and the weekday×hour
-/// baseline per spot and turns them into display rows.
+/// baseline per spot and turns them into display rows, grouped north→south by region.
 @MainActor
 final class MenuViewModel: ObservableObject {
     struct Row: Identifiable {
@@ -14,6 +14,14 @@ final class MenuViewModel: ObservableObject {
         var lowSignal: Bool
         var sourceKind: SourceKind
         var camURL: URL?
+        var region: Region
+        var isFavorite: Bool
+    }
+
+    struct RegionSection: Identifiable {
+        var region: Region
+        var rows: [Row]
+        var id: String { region.rawValue }
     }
 
     /// Status of the "Go Surf" flow.
@@ -28,13 +36,20 @@ final class MenuViewModel: ObservableObject {
     }
 
     @Published var rows: [Row] = []
+    @Published var sections: [RegionSection] = []
     @Published var conditions: Conditions?
     @Published var selectedDuration: TimeInterval? {
         didSet {
-            // Persist the pick so it's pre-selected next time the menu opens (T14).
+            // Persist the pick so it's pre-selected next time the menu opens.
             if let selectedDuration {
                 settings.selectedDuration = selectedDuration
             }
+        }
+    }
+    @Published var showFavoritesOnly: Bool {
+        didSet {
+            settings.showFavoritesOnly = showFavoritesOnly
+            refresh()
         }
     }
     @Published var surfEscapeStatus: SurfEscapeStatus = .idle
@@ -53,14 +68,14 @@ final class MenuViewModel: ObservableObject {
         // Resolve `.shared` here (main-actor init), not as a default argument.
         let settings = settings ?? .shared
         self.settings = settings
-        // Initializing assignment — does not fire didSet, so we don't write back
-        // the value we just read.
+        // Initializing assignments — do not fire didSet, so we don't write back
+        // the values we just read.
         self.selectedDuration = settings.selectedDuration
+        self.showFavoritesOnly = settings.showFavoritesOnly
     }
 
     func refresh(now: Date = Date()) {
-        rows = registry.spots.map { spot in
-            // Flatten the `try?` double-optionals to a single optional.
+        let all = registry.spots.map { spot -> Row in
             let latest: Sample? = (try? store.latest(spotID: spot.id)) ?? nil
             let typical: Double? = (try? store.typicalCount(spotID: spot.id, for: now)) ?? nil
             let level: TrendLevel = {
@@ -73,9 +88,23 @@ final class MenuViewModel: ObservableObject {
                 freshness: freshnessLabel(spot: spot, sample: latest, now: now),
                 lowSignal: spot.surfValue == .lowSignal,
                 sourceKind: spot.source.kind,
-                camURL: spot.source.url.isEmpty ? nil : URL(string: spot.source.url)
+                camURL: spot.source.url.isEmpty ? nil : URL(string: spot.source.url),
+                region: spot.region,
+                isFavorite: settings.isFavorite(spot.id)
             )
         }
+        let visible = showFavoritesOnly ? all.filter(\.isFavorite) : all
+        rows = visible
+        // Group by region, preserving north→south declaration order; drop empty regions.
+        sections = Region.allCases.compactMap { region in
+            let rs = visible.filter { $0.region == region }
+            return rs.isEmpty ? nil : RegionSection(region: region, rows: rs)
+        }
+    }
+
+    func toggleFavorite(spotID: String) {
+        settings.toggleFavorite(spotID)
+        refresh()
     }
 
     private func freshnessLabel(spot: Spot, sample: Sample?, now: Date) -> String {

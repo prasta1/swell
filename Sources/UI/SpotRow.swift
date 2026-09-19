@@ -6,10 +6,22 @@ struct SpotRow: View {
     let row: MenuViewModel.Row
     /// Opens the cam-viewer window focused on this spot.
     let onViewCam: (String) -> Void
+    /// Toggles the starred/favorite state for this spot.
+    let onToggleFavorite: (String) -> Void
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
+            Button {
+                onToggleFavorite(row.id)
+            } label: {
+                Image(systemName: row.isFavorite ? "star.fill" : "star")
+                    .font(.system(size: 11))
+                    .foregroundStyle(row.isFavorite ? Color.yellow : Color.secondary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .help(row.isFavorite ? "Remove from favorites" : "Add to favorites")
+
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.name).font(.system(size: 14, weight: .medium))
                 Text(row.freshness).font(.system(size: 11)).foregroundStyle(.tertiary)
@@ -29,6 +41,10 @@ struct SpotRow: View {
         .opacity(row.surfValue == .locked ? 0.45 : (row.lowSignal ? 0.65 : 1))
         .padding(.horizontal, 14).padding(.vertical, 9)
         .contextMenu {
+            Button(row.isFavorite ? "Remove from Favorites" : "Add to Favorites") {
+                onToggleFavorite(row.id)
+            }
+            Divider()
             if row.surfValue != .locked && (row.sourceKind != .youtube || row.camURL != nil) {
                 Button("View Live Cam") { onViewCam(row.id) }
                 if let url = row.camURL {

@@ -12,6 +12,8 @@ final class SettingsStore {
         case selectedDuration
         case titleBackend
         case defaultCalendarID
+        case favoriteSpotIDs     // stored as [String]; surfaced as Set<String>
+        case showFavoritesOnly
     }
 
     /// Selected LLM backend for meeting titles.
@@ -49,6 +51,27 @@ final class SettingsStore {
     var defaultCalendarID: String? {
         get { defaults.string(forKey: Key.defaultCalendarID.rawValue) }
         set { defaults.set(newValue, forKey: Key.defaultCalendarID.rawValue) }
+    }
+
+    /// IDs of spots the user has starred. UserDefaults can't store Set, so
+    /// the backing type is [String]; this property bridges to Set<String>.
+    var favoriteSpotIDs: Set<String> {
+        get { Set(defaults.stringArray(forKey: Key.favoriteSpotIDs.rawValue) ?? []) }
+        set { defaults.set(Array(newValue), forKey: Key.favoriteSpotIDs.rawValue) }
+    }
+
+    /// When true the menu collapses to favorited spots only.
+    var showFavoritesOnly: Bool {
+        get { defaults.bool(forKey: Key.showFavoritesOnly.rawValue) }
+        set { defaults.set(newValue, forKey: Key.showFavoritesOnly.rawValue) }
+    }
+
+    func isFavorite(_ spotID: String) -> Bool { favoriteSpotIDs.contains(spotID) }
+
+    func toggleFavorite(_ spotID: String) {
+        var ids = favoriteSpotIDs
+        if ids.contains(spotID) { ids.remove(spotID) } else { ids.insert(spotID) }
+        favoriteSpotIDs = ids
     }
 
     /// - Parameter defaults: backing store; inject a throwaway instance in tests.

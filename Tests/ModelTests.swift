@@ -21,4 +21,26 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(sources[0].kind, .snapshot)
         XCTAssertEqual(sources[1].kind, .hls)
     }
+
+    func testSpotDecodesRegion() throws {
+        let json = """
+        {
+          "id": "cowells",
+          "name": "Cowells",
+          "source": {"kind": "snapshot", "url": "https://example.com/snap.jpg"},
+          "waterRegion": {"points": [[0.0, 0.5], [1.0, 0.5], [1.0, 0.9], [0.0, 0.9]]},
+          "surfValue": "good",
+          "region": "santaCruz"
+        }
+        """.data(using: .utf8)!
+        let spot = try JSONDecoder().decode(Spot.self, from: json)
+        XCTAssertEqual(spot.region, .santaCruz)
+    }
+
+    func testRegionOrderIsNorthToSouth() {
+        XCTAssertEqual(Region.allCases, [
+            .sanFrancisco, .pacifica, .halfMoonBay,
+            .santaCruz, .capitolaAptos, .monterey
+        ])
+    }
 }

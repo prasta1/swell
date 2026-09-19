@@ -59,7 +59,7 @@ private struct CustomDurationPopover: View {
     }
 }
 
-/// The dropdown root: header, conditions strip, spot rows, footer actions.
+/// The dropdown root: header, conditions strip, region-grouped spot rows, footer actions.
 struct MenuContentView: View {
     @ObservedObject var vm: MenuViewModel
     let calendarService: CalendarService
@@ -73,9 +73,19 @@ struct MenuContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Header — Swell label, favorites toggle, settings gear
             HStack {
                 Label("Swell", systemImage: "water.waves").font(.system(size: 15, weight: .medium))
                 Spacer()
+                Button {
+                    vm.showFavoritesOnly.toggle()
+                } label: {
+                    Image(systemName: vm.showFavoritesOnly ? "star.fill" : "star")
+                        .font(.system(size: 13))
+                        .foregroundStyle(vm.showFavoritesOnly ? Color.yellow : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(vm.showFavoritesOnly ? "Show all spots" : "Show favorites only")
                 Button { showSettings = true } label: {
                     Image(systemName: "gearshape").font(.system(size: 13))
                 }
@@ -88,7 +98,35 @@ struct MenuContentView: View {
             Divider()
             ConditionsStrip(c: vm.conditions).padding(.horizontal, 14).padding(.vertical, 10)
             Divider()
-            ForEach(vm.rows) { SpotRow(row: $0, onViewCam: onViewCam) }
+
+            // Spot list — grouped by region north→south
+            if vm.showFavoritesOnly && vm.sections.isEmpty {
+                Text("No favorites yet — star a spot to pin it here")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 24)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(vm.sections) { section in
+                        // Region header
+                        Text(section.region.displayName)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 5)
+                            .background(.bar)
+                        ForEach(section.rows) { row in
+                            SpotRow(row: row, onViewCam: onViewCam,
+                                    onToggleFavorite: { vm.toggleFavorite(spotID: $0) })
+                        }
+                    }
+                }
+            }
+
             Divider()
             SurfEscapeFooter(vm: vm, showCustomDuration: $showCustomDuration)
             Divider()

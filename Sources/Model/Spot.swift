@@ -39,10 +39,35 @@ struct SourceDescriptor: Codable, Equatable {
 /// `lowSignal` cams mostly show beach; `locked` spots have no public cam.
 enum SurfValue: String, Codable { case good, ok, lowSignal, locked }
 
+/// Geographic region a spot belongs to. Declaration order is the authoritative
+/// north→south ordering used for menu sections.
+enum Region: String, Codable, CaseIterable, Identifiable, Equatable {
+    case sanFrancisco
+    case pacifica
+    case halfMoonBay
+    case santaCruz
+    case capitolaAptos
+    case monterey
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .sanFrancisco:  return "San Francisco"
+        case .pacifica:      return "Pacifica"
+        case .halfMoonBay:   return "Half Moon Bay / Mavericks"
+        case .santaCruz:     return "Santa Cruz"
+        case .capitolaAptos: return "Capitola / Aptos"
+        case .monterey:      return "Monterey / Pacific Grove"
+        }
+    }
+}
+
 struct Spot: Codable, Identifiable, Equatable {
     var id: String
     var name: String
     var source: SourceDescriptor
     var waterRegion: WaterRegion
     var surfValue: SurfValue
+    var region: Region
 }
