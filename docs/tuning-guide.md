@@ -6,10 +6,17 @@ This document explains how to tune the YOLO detector for better surfer detection
 
 ### 1. Analyze Current Setup
 ```bash
-# Run the analysis tool
-python3 scripts/tune-detection.py cowells
-python3 scripts/tune-detection.py steamer-lane
+# Report the measured frame size, water-region crop and tile grid for a spot
+./scripts/tune-detection.swift cowells
+
+# Omit the spot id to walk every unlocked spot
+./scripts/tune-detection.swift
 ```
+
+Snapshot cams only — HLS and YouTube spots are skipped, since pulling a frame from
+those needs the app's `HLSSource` / `YouTubeSource`. If `swift` on your PATH is older
+than 5.5 (a swiftly toolchain can shadow Xcode's), run it as `xcrun swift
+scripts/tune-detection.swift` instead.
 
 ### 2. Run the App and Test Visually
 1. Build and run Swell
